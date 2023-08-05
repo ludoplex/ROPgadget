@@ -27,10 +27,10 @@ class UpdateAlert(object):
             print("Can't connect to raw.githubusercontent.com")
             return
         d = conn.getresponse().read().decode()
-        majorVersion = re.search("MAJOR_VERSION.+=.+(?P<value>[\d])", d).group("value")
-        minorVersion = re.search("MINOR_VERSION.+=.+(?P<value>[\d])", d).group("value")
-        webVersion = int("%s%s" % (majorVersion, minorVersion))
-        curVersion = int("%s%s" % (MAJOR_VERSION, MINOR_VERSION))
+        majorVersion = re.search("MAJOR_VERSION.+=.+(?P<value>[\d])", d)["value"]
+        minorVersion = re.search("MINOR_VERSION.+=.+(?P<value>[\d])", d)["value"]
+        webVersion = int(f"{majorVersion}{minorVersion}")
+        curVersion = int(f"{MAJOR_VERSION}{MINOR_VERSION}")
         if webVersion > curVersion:
             print("The version %s.%s is available. Currently, you use the version %d.%d." % (majorVersion, minorVersion, MAJOR_VERSION, MINOR_VERSION))
         else:

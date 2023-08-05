@@ -30,9 +30,13 @@ class Core(cmd.Cmd):
         self.prompt    = '(ROPgadget)> '
 
     def __checksBeforeManipulations(self):
-        if self.__binary is None or self.__binary.getBinary() is None or self.__binary.getArch() is None or self.__binary.getArchMode() is None or self.__binary.getEndian() is None:
-            return False
-        return True
+        return (
+            self.__binary is not None
+            and self.__binary.getBinary() is not None
+            and self.__binary.getArch() is not None
+            and self.__binary.getArchMode() is not None
+            and self.__binary.getEndian() is not None
+        )
 
     def _sectionInRange(self, section):
         """Given a section and a range, edit the section so that all opcodes are within the range"""
@@ -108,7 +112,7 @@ class Core(cmd.Cmd):
         for gadget in self.__gadgets:
             vaddr = gadget["vaddr"]
             insts = gadget.get("gadget", "")
-            insts = " : {}".format(insts) if insts else ""
+            insts = f" : {insts}" if insts else ""
             bytesStr = " // " + binascii.hexlify(gadget["bytes"]).decode('utf8') if self.__options.dump else ""
             print("0x{{0:0{}x}}{{1}}{{2}}".format(8 if arch == CS_MODE_32 else 16).format(vaddr, insts, bytesStr))
 
@@ -134,22 +138,24 @@ class Core(cmd.Cmd):
         elif mips_option == 'registers':
             mipsFindRegex = [r'lw \$ra, 0x[0-9a-z]{0,4}\(\$sp']
         else:
-            print("Unrecognized option " + mips_option)
+            print(f"Unrecognized option {mips_option}")
             print("Accepted options stackfinder|system|tails|lia0|registers")
             return False
 
-        print("MIPS ROP (" + mips_option + ")\n============================================================")
+        print(
+            f"MIPS ROP ({mips_option}"
+            + ")\n============================================================"
+        )
         self.__getGadgets()
 
         gadget_counter = 0
         for gadget in self.__gadgets:
             vaddr = gadget["vaddr"]
             insts = gadget.get("gadget", "")
-            insts = " : {}".format(insts) if insts else ""
+            insts = f" : {insts}" if insts else ""
             bytesStr = " // " + binascii.hexlify(gadget["bytes"]).decode('utf8') if self.__options.dump else ""
             for thisRegex in mipsFindRegex:
-                toFind = re.findall(thisRegex, insts)
-                if toFind:
+                if toFind := re.findall(thisRegex, insts):
                     print("0x{{0:0{}x}}{{1}}{{2}}".format(8 if arch == CS_MODE_32 else 16).format(vaddr, insts, bytesStr))
                     gadget_counter += 1
 
@@ -268,10 +274,7 @@ class Core(cmd.Cmd):
         # Do not split the filename with spaces since it might contain
         # whitespaces
         if not s:
-            if not silent:
-                return self.help_binary()
-            return False
-
+            return self.help_binary() if not silent else False
         binary = s
 
         self.__options.binary = binary
@@ -324,14 +327,12 @@ class Core(cmd.Cmd):
         try:
             depth = int(s.split()[0])
         except:
-            if not silent:
-                return self.help_depth()
-            return False
+            return self.help_depth() if not silent else False
         if depth <= 0:
             if not silent:
                 print("[-] The depth value must be > 0")
             return False
-        self.__options.depth = int(depth)
+        self.__options.depth = depth
 
         if not silent:
             print("[+] Depth updated. You have to reload gadgets")
@@ -344,10 +345,7 @@ class Core(cmd.Cmd):
         try:
             bb = s.split()[0]
         except:
-            if not silent:
-                return self.help_badbytes()
-            else:
-                return False
+            return self.help_badbytes() if not silent else False
         self.__options.badbytes = bb
 
         if not silent:
@@ -358,18 +356,10 @@ class Core(cmd.Cmd):
         return False
 
     def __withK(self, listK, gadget):
-        if not listK:
-            return True
-        for a in listK:
-            if a not in gadget:
-                return False
-        return True
+        return True if not listK else all(a in gadget for a in listK)
 
     def __withoutK(self, listK, gadget):
-        for a in listK:
-            if a in gadget:
-                return False
-        return True
+        return all(a not in gadget for a in listK)
 
     def do_search(self, s, silent=False):
         args = s.split()
@@ -387,9 +377,9 @@ class Core(cmd.Cmd):
             return False
         arch = self.__binary.getArchMode()
         for gadget in self.__gadgets:
-            vaddr = gadget["vaddr"]
             insts = gadget["gadget"]
             if self.__withK(withK, insts) and self.__withoutK(withoutK, insts):
+                vaddr = gadget["vaddr"]
                 # What to do if silent = True?
                 print("0x{{0:0{}x}} : {{1}}".format(8 if arch == CS_MODE_32 else 16).format(vaddr, insts))
 
@@ -414,10 +404,7 @@ class Core(cmd.Cmd):
         try:
             self.__options.filter = s.split()[0]
         except:
-            if not silent:
-                return self.help_filter()
-            return False
-
+            return self.help_filter() if not silent else False
         if not silent:
             print("[+] Filter setted. You have to reload gadgets")
 
@@ -427,15 +414,9 @@ class Core(cmd.Cmd):
 
     def do_only(self, s, silent=False):
         try:
-            if s.lower() == "none":
-                self.__options.only = None
-            else:
-                self.__options.only = s.split()[0]
+            self.__options.only = None if s.lower() == "none" else s.split()[0]
         except:
-            if not silent:
-                return self.help_only()
-            return False
-
+            return self.help_only() if not silent else False
         if not silent:
             print("[+] Only setted. You have to reload gadgets")
 
@@ -449,10 +430,7 @@ class Core(cmd.Cmd):
             rangeE = int(s.split('-')[1], 16)
             self.__options.range = s.split()[0]
         except:
-            if not silent:
-                return self.help_range()
-            return False
-
+            return self.help_range() if not silent else False
         if rangeS > rangeE:
             if not silent:
                 print("[-] The start value must be greater than the end value")
@@ -466,28 +444,28 @@ class Core(cmd.Cmd):
         return False
 
     def do_settings(self, s, silent=False):
-        print("All:         %s" % self.__options.all)
-        print("Badbytes:    %s" % self.__options.badbytes)
-        print("Binary:      %s" % self.__options.binary)
-        print("Depth:       %s" % self.__options.depth)
-        print("Filter:      %s" % self.__options.filter)
-        print("Memstr:      %s" % self.__options.memstr)
-        print("MultiBr:     %s" % self.__options.multibr)
-        print("NoJOP:       %s" % self.__options.nojop)
-        print("NoROP:       %s" % self.__options.norop)
-        print("NoSYS:       %s" % self.__options.nosys)
-        print("Offset:      %s" % self.__options.offset)
-        print("Only:        %s" % self.__options.only)
-        print("Opcode:      %s" % self.__options.opcode)
-        print("ROPchain:    %s" % self.__options.ropchain)
-        print("Range:       %s" % self.__options.range)
-        print("RawArch:     %s" % self.__options.rawArch)
-        print("RawMode:     %s" % self.__options.rawMode)
-        print("RawEndian:   %s" % self.__options.rawEndian)
-        print("Re:          %s" % self.__options.re)
-        print("String:      %s" % self.__options.string)
-        print("Thumb:       %s" % self.__options.thumb)
-        print("Mipsrop:     %s" % self.__options.mipsrop)
+        print(f"All:         {self.__options.all}")
+        print(f"Badbytes:    {self.__options.badbytes}")
+        print(f"Binary:      {self.__options.binary}")
+        print(f"Depth:       {self.__options.depth}")
+        print(f"Filter:      {self.__options.filter}")
+        print(f"Memstr:      {self.__options.memstr}")
+        print(f"MultiBr:     {self.__options.multibr}")
+        print(f"NoJOP:       {self.__options.nojop}")
+        print(f"NoROP:       {self.__options.norop}")
+        print(f"NoSYS:       {self.__options.nosys}")
+        print(f"Offset:      {self.__options.offset}")
+        print(f"Only:        {self.__options.only}")
+        print(f"Opcode:      {self.__options.opcode}")
+        print(f"ROPchain:    {self.__options.ropchain}")
+        print(f"Range:       {self.__options.range}")
+        print(f"RawArch:     {self.__options.rawArch}")
+        print(f"RawMode:     {self.__options.rawMode}")
+        print(f"RawEndian:   {self.__options.rawEndian}")
+        print(f"Re:          {self.__options.re}")
+        print(f"String:      {self.__options.string}")
+        print(f"Thumb:       {self.__options.thumb}")
+        print(f"Mipsrop:     {self.__options.mipsrop}")
 
     def help_settings(self):
         print("Display setting's environment")
@@ -510,9 +488,7 @@ class Core(cmd.Cmd):
                 print("[+] NoJOP disable. You have to reload gadgets")
 
         else:
-            if not silent:
-                return self.help_nojop()
-            return False
+            return self.help_nojop() if not silent else False
 
     def help_nojop(self):
         print("Syntax: nojop <enable|disable> - Disable JOP search engin")
@@ -535,9 +511,7 @@ class Core(cmd.Cmd):
                 print("[+] NoROP disable. You have to reload gadgets")
 
         else:
-            if not silent:
-                return self.help_norop()
-            return False
+            return self.help_norop() if not silent else False
 
     def help_norop(self):
         print("Syntax: norop <enable|disable> - Disable ROP search engin")
@@ -560,10 +534,7 @@ class Core(cmd.Cmd):
                 print("[+] NoSYS disable. You have to reload gadgets")
 
         else:
-            if not silent:
-                return self.help_nosys()
-
-            return False
+            return self.help_nosys() if not silent else False
 
     def help_nosys(self):
         print("Syntax: nosys <enable|disable> - Disable SYS search engin")
@@ -586,9 +557,7 @@ class Core(cmd.Cmd):
                 print("[+] Thumb disable. You have to reload gadgets")
 
         else:
-            if not silent:
-                return self.help_thumb()
-            return False
+            return self.help_thumb() if not silent else False
 
     def help_thumb(self):
         print("Syntax: thumb <enable|disable> - Use the thumb mode for the search engine (ARM only)")
@@ -606,10 +575,7 @@ class Core(cmd.Cmd):
                 print("[+] Showing all gadgets disabled. You have to reload gadgets")
 
         else:
-            if not silent:
-                return self.help_all()
-
-            return False
+            return self.help_all() if not silent else False
 
     def help_multibr(self):
         print("Syntax: multibr <enable|disable> - Enable/Disable multiple branch gadgets")
@@ -627,10 +593,7 @@ class Core(cmd.Cmd):
                 print("[+] Multiple branch gadgets disabled. You have to reload gadgets")
 
         else:
-            if not silent:
-                return self.help_all()
-
-            return False
+            return self.help_all() if not silent else False
 
     def help_all(self):
         print("Syntax: all <enable|disable - Show all gadgets (disable removing duplicate gadgets)")

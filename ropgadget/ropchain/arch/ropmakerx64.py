@@ -26,19 +26,21 @@ class ROPMakerX64(object):
             if gadget in gadgetsAlreadyTested:
                 continue
             f = gadget["gadget"].split(" ; ")[0]
-            regex = re.search("mov .* ptr \[(?P<dst>([(rax)|(rbx)|(rcx)|(rdx)|(rsi)|(rdi)|(r9)|(r10)|(r11)|(r12)|(r13)|(r14)|(r15)]{3}))\], (?P<src>([(rax)|(rbx)|(rcx)|(rdx)|(rsi)|(rdi)|(r9)|(r10)|(r11)|(r12)|(r13)|(r14)|(r15)]{3}))$", f)
-            if regex:
+            if regex := re.search(
+                "mov .* ptr \[(?P<dst>([(rax)|(rbx)|(rcx)|(rdx)|(rsi)|(rdi)|(r9)|(r10)|(r11)|(r12)|(r13)|(r14)|(r15)]{3}))\], (?P<src>([(rax)|(rbx)|(rcx)|(rdx)|(rsi)|(rdi)|(r9)|(r10)|(r11)|(r12)|(r13)|(r14)|(r15)]{3}))$",
+                f,
+            ):
                 lg = gadget["gadget"].split(" ; ")[1:]
                 try:
                     for g in lg:
-                        if g.split()[0] != "pop" and g.split()[0] != "ret":
+                        if g.split()[0] not in ["pop", "ret"]:
                             raise
                         # we need this to filterout 'ret' instructions with an offset like 'ret 0x6', because they ruin the stack pointer
                         if g != "ret":
                             if g.split()[0] == "ret" and g.split()[1] != "":
                                 raise
                     print("\t[+] Gadget found: 0x%x %s" % (gadget["vaddr"], gadget["gadget"]))
-                    return [gadget, regex.group("dst"), regex.group("src")]
+                    return [gadget, regex["dst"], regex["src"]]
                 except:
                     continue
         return None
@@ -49,7 +51,7 @@ class ROPMakerX64(object):
             if lg[0] == something:
                 try:
                     for g in lg[1:]:
-                        if g.split()[0] != "pop" and g.split()[0] != "ret":
+                        if g.split()[0] not in ["pop", "ret"]:
                             raise
                         if g != "ret":
                             # we need this to filterout 'ret' instructions with an offset like 'ret 0x6', because they ruin the stack pointer
@@ -147,26 +149,24 @@ class ROPMakerX64(object):
                 print("\t[-] Can't find the 'mov qword ptr [r64], r64' gadget")
                 return
 
-            popDst = self.__lookingForSomeThing("pop %s" % write4where[1])
+            popDst = self.__lookingForSomeThing(f"pop {write4where[1]}")
             if not popDst:
                 print("\t[-] Can't find the 'pop %s' gadget. Try with another 'mov [reg], reg'\n" % write4where[1])
                 gadgetsAlreadyTested += [write4where[0]]
                 continue
 
-            popSrc = self.__lookingForSomeThing("pop %s" % write4where[2])
+            popSrc = self.__lookingForSomeThing(f"pop {write4where[2]}")
             if not popSrc:
                 print("\t[-] Can't find the 'pop %s' gadget. Try with another 'mov [reg], reg'\n" % write4where[2])
                 gadgetsAlreadyTested += [write4where[0]]
                 continue
 
-            xorSrc = self.__lookingForSomeThing("xor %s, %s" % (write4where[2], write4where[2]))
-            if not xorSrc:
-                print("\t[-] Can't find the 'xor %s, %s' gadget. Try with another 'mov [reg], reg'\n" % (write4where[2], write4where[2]))
-                gadgetsAlreadyTested += [write4where[0]]
-                continue
-            else:
+            xorSrc = self.__lookingForSomeThing(f"xor {write4where[2]}, {write4where[2]}")
+            if xorSrc:
                 break
 
+            print("\t[-] Can't find the 'xor %s, %s' gadget. Try with another 'mov [reg], reg'\n" % (write4where[2], write4where[2]))
+            gadgetsAlreadyTested += [write4where[0]]
         print("\n- Step 2 -- Init syscall number gadgets\n")
 
         xorRax = self.__lookingForSomeThing("xor rax, rax")

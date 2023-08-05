@@ -203,10 +203,10 @@ class MACHO(object):
 
     def __setEndianness(self):
         magic = self.__binary[0] << 24 | \
-                self.__binary[1] << 16 | \
-                self.__binary[2] <<  8 | \
-                self.__binary[3]
-        if magic == 0xfeedface or magic == 0xfeedfacf:
+                    self.__binary[1] << 16 | \
+                    self.__binary[2] <<  8 | \
+                    self.__binary[3]
+        if magic in [0xFEEDFACE, 0xFEEDFACF]:
             self.__endianness = CS_MODE_BIG_ENDIAN
         else:
             self.__endianness = 0
@@ -269,37 +269,46 @@ class MACHO(object):
 
     def getEntryPoint(self):
         for section in self.__sections_l:
-            if section.sectname[0:6] == "__text":
+            if section.sectname[:6] == "__text":
                 return section.addr
 
     def getExecSections(self):
-        ret = []
-        for section in self.__sections_l:
-            if section.flags & MACHOFlags.S_ATTR_SOME_INSTRUCTIONS or section.flags & MACHOFlags.S_ATTR_PURE_INSTRUCTIONS:
-                ret +=  [{
-                            "name"    : section.sectname,
-                            "offset"  : section.offset,
-                            "size"    : section.size,
-                            "vaddr"   : section.addr,
-                            "opcodes" : bytes(self.__binary[section.offset:section.offset + section.size]),
-                        }]
-        return ret
+        return [
+            {
+                "name": section.sectname,
+                "offset": section.offset,
+                "size": section.size,
+                "vaddr": section.addr,
+                "opcodes": bytes(
+                    self.__binary[section.offset : section.offset + section.size]
+                ),
+            }
+            for section in self.__sections_l
+            if section.flags & MACHOFlags.S_ATTR_SOME_INSTRUCTIONS
+            or section.flags & MACHOFlags.S_ATTR_PURE_INSTRUCTIONS
+        ]
 
     def getDataSections(self):
-        ret = []
-        for section in self.__sections_l:
-            if not section.flags & MACHOFlags.S_ATTR_SOME_INSTRUCTIONS and not section.flags & MACHOFlags.S_ATTR_PURE_INSTRUCTIONS:
-                ret +=  [{
-                            "name"    : section.sectname,
-                            "offset"  : section.offset,
-                            "size"    : section.size,
-                            "vaddr"   : section.addr,
-                            "opcodes" : bytes(self.__binary[section.offset:section.offset + section.size]),
-                        }]
-        return ret
+        return [
+            {
+                "name": section.sectname,
+                "offset": section.offset,
+                "size": section.size,
+                "vaddr": section.addr,
+                "opcodes": bytes(
+                    self.__binary[section.offset : section.offset + section.size]
+                ),
+            }
+            for section in self.__sections_l
+            if not section.flags & MACHOFlags.S_ATTR_SOME_INSTRUCTIONS
+            and not section.flags & MACHOFlags.S_ATTR_PURE_INSTRUCTIONS
+        ]
 
     def getArch(self):
-        if self.__machHeader.cputype == MACHOFlags.CPU_TYPE_I386 or self.__machHeader.cputype == MACHOFlags.CPU_TYPE_X86_64:
+        if self.__machHeader.cputype in [
+            MACHOFlags.CPU_TYPE_I386,
+            MACHOFlags.CPU_TYPE_X86_64,
+        ]:
             return CS_ARCH_X86
         if self.__machHeader.cputype == MACHOFlags.CPU_TYPE_ARM:
             return CS_ARCH_ARM
@@ -307,7 +316,10 @@ class MACHO(object):
             return CS_ARCH_ARM64
         if self.__machHeader.cputype == MACHOFlags.CPU_TYPE_MIPS:
             return CS_ARCH_MIPS
-        if self.__machHeader.cputype == MACHOFlags.CPU_TYPE_POWERPC or self.__machHeader.cputype == MACHOFlags.CPU_TYPE_POWERPC64:
+        if self.__machHeader.cputype in [
+            MACHOFlags.CPU_TYPE_POWERPC,
+            MACHOFlags.CPU_TYPE_POWERPC64,
+        ]:
             return CS_ARCH_PPC
         print("[Error] MACHO.getArch() - Architecture not supported")
         return None

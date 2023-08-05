@@ -28,7 +28,7 @@ class Gadgets(object):
                 re_str += "|"
             re_str += self.__options.filter
 
-        self.__filterRE = re.compile("({})$".format(re_str)) if re_str else None
+        self.__filterRE = re.compile(f"({re_str})$") if re_str else None
 
     def __passCleanX86(self, decodes):
         br = ["ret", "retf", "int", "sysenter", "jmp", "call", "syscall"]
@@ -37,10 +37,7 @@ class Gadgets(object):
             return True
         if not self.__options.multibr and any(mnemonic in br for _, _, mnemonic, _ in decodes[:-1]):
             return True
-        if any("ret" in mnemonic for _, _, mnemonic, _ in decodes[:-1]):
-            return True
-
-        return False
+        return any(("ret" in mnemonic for _, _, mnemonic, _ in decodes[:-1]))
 
     def __gadgetsFinding(self, section, gadgets, arch, mode):
 
@@ -72,8 +69,10 @@ class Gadgets(object):
                         vaddr = off + sec_vaddr + start
                         g = {"vaddr": vaddr}
                         if not self.__options.noinstr:
-                            g["gadget"] = " ; ".join("{}{}{}".format(mnemonic, " " if op_str else "", op_str)
-                                                     for _, _, mnemonic, op_str in decodes).replace("  ", " ")
+                            g["gadget"] = " ; ".join(
+                                f'{mnemonic}{" " if op_str else ""}{op_str}'
+                                for _, _, mnemonic, op_str in decodes
+                            ).replace("  ", " ")
                         if self.__options.callPreceded:
                             prevBytesAddr = max(sec_vaddr, vaddr - PREV_BYTES)
                             g["prev"] = opcodes[prevBytesAddr - sec_vaddr:vaddr - sec_vaddr]
@@ -406,7 +405,9 @@ class Gadgets(object):
         if self.__arch == CS_ARCH_X86 and self.__passCleanX86(decodes):
             return True
 
-        if self.__filterRE and any(self.__filterRE.match(mnemonic) for _, _, mnemonic, _ in decodes):
-            return True
-
-        return False
+        return bool(
+            self.__filterRE
+            and any(
+                self.__filterRE.match(mnemonic) for _, _, mnemonic, _ in decodes
+            )
+        )

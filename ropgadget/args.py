@@ -152,7 +152,7 @@ architectures supported:
                 raise ValueError("[Error] The start value must be greater than end value")
 
     def __printVersion(self):
-        print("Version:        %s" % (PYROPGADGET_VERSION))
+        print(f"Version:        {PYROPGADGET_VERSION}")
         print("Author:         Jonathan Salwan")
         print("Author page:    https://twitter.com/JonathanSalwan")
         print("Project page:   http://shell-storm.org/project/ROPgadget/")
