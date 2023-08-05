@@ -166,10 +166,16 @@ class PE(object):
     def __parseOptHeader(self):
         PEoptHeader = self.__binary[self.__PEOffset + 24:self.__PEOffset + 24 + self.__IMAGE_FILE_HEADER.SizeOfOptionalHeader]
 
-        if unpack("<H", bytes(PEoptHeader[0:2]))[0] == PEFlags.IMAGE_NT_OPTIONAL_HDR32_MAGIC:
+        if (
+            unpack("<H", bytes(PEoptHeader[:2]))[0]
+            == PEFlags.IMAGE_NT_OPTIONAL_HDR32_MAGIC
+        ):
             self.__IMAGE_OPTIONAL_HEADER = IMAGE_OPTIONAL_HEADER.from_buffer_copy(PEoptHeader)
 
-        elif unpack("<H", bytes(PEoptHeader[0:2]))[0] == PEFlags.IMAGE_NT_OPTIONAL_HDR64_MAGIC:
+        elif (
+            unpack("<H", bytes(PEoptHeader[:2]))[0]
+            == PEFlags.IMAGE_NT_OPTIONAL_HDR64_MAGIC
+        ):
             self.__IMAGE_OPTIONAL_HEADER = IMAGE_OPTIONAL_HEADER64.from_buffer_copy(PEoptHeader)
 
         else:
@@ -192,35 +198,53 @@ class PE(object):
         return self.__IMAGE_OPTIONAL_HEADER.ImageBase + self.__IMAGE_OPTIONAL_HEADER.AddressOfEntryPoint
 
     def getDataSections(self):
-        ret = []
-        for section in self.__sections_l:
-            if section.Characteristics & 0x80000000:
-                ret +=  [{
-                            "name"    : section.Name,
-                            "offset"  : section.PointerToRawData,
-                            "size"    : section.SizeOfRawData,
-                            "vaddr"   : section.VirtualAddress + self.__IMAGE_OPTIONAL_HEADER.ImageBase,
-                            "opcodes" : bytes(self.__binary[section.PointerToRawData:section.PointerToRawData + section.SizeOfRawData]),
-                        }]
-        return ret
+        return [
+            {
+                "name": section.Name,
+                "offset": section.PointerToRawData,
+                "size": section.SizeOfRawData,
+                "vaddr": section.VirtualAddress
+                + self.__IMAGE_OPTIONAL_HEADER.ImageBase,
+                "opcodes": bytes(
+                    self.__binary[
+                        section.PointerToRawData : section.PointerToRawData
+                        + section.SizeOfRawData
+                    ]
+                ),
+            }
+            for section in self.__sections_l
+            if section.Characteristics & 0x80000000
+        ]
 
     def getExecSections(self):
-        ret = []
-        for section in self.__sections_l:
-            if section.Characteristics & 0x20000000:
-                ret +=  [{
-                            "name"    : section.Name,
-                            "offset"  : section.PointerToRawData,
-                            "size"    : section.SizeOfRawData,
-                            "vaddr"   : section.VirtualAddress + self.__IMAGE_OPTIONAL_HEADER.ImageBase,
-                            "opcodes" : bytes(self.__binary[section.PointerToRawData:section.PointerToRawData + section.SizeOfRawData]),
-                        }]
-        return ret
+        return [
+            {
+                "name": section.Name,
+                "offset": section.PointerToRawData,
+                "size": section.SizeOfRawData,
+                "vaddr": section.VirtualAddress
+                + self.__IMAGE_OPTIONAL_HEADER.ImageBase,
+                "opcodes": bytes(
+                    self.__binary[
+                        section.PointerToRawData : section.PointerToRawData
+                        + section.SizeOfRawData
+                    ]
+                ),
+            }
+            for section in self.__sections_l
+            if section.Characteristics & 0x20000000
+        ]
 
     def getArch(self):
-        if self.__IMAGE_FILE_HEADER.Machine ==  PEFlags.IMAGE_MACHINE_INTEL_386 or self.__IMAGE_FILE_HEADER.Machine == PEFlags.IMAGE_MACHINE_AMD_8664:
+        if self.__IMAGE_FILE_HEADER.Machine in [
+            PEFlags.IMAGE_MACHINE_INTEL_386,
+            PEFlags.IMAGE_MACHINE_AMD_8664,
+        ]:
             return CS_ARCH_X86
-        if self.__IMAGE_FILE_HEADER.Machine == PEFlags.IMAGE_FILE_MACHINE_ARM or self.__IMAGE_FILE_HEADER.Machine == PEFlags.IMAGE_FILE_MACHINE_ARMV7:
+        if self.__IMAGE_FILE_HEADER.Machine in [
+            PEFlags.IMAGE_FILE_MACHINE_ARM,
+            PEFlags.IMAGE_FILE_MACHINE_ARMV7,
+        ]:
             return CS_ARCH_ARM
         print("[Error] PE.getArch() - Bad Arch")
         return None

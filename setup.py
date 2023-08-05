@@ -23,9 +23,7 @@ def fullsplit(path, result=None):
     head, tail = os.path.split(path)
     if head == '':
         return [tail] + result
-    if head == path:
-        return result
-    return fullsplit(head, [tail] + result)
+    return result if head == path else fullsplit(head, [tail] + result)
 
 
 # Compile the list of packages available, because distutils doesn't have

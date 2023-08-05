@@ -68,10 +68,12 @@ class UNIVERSAL(object):
         for i in xrange(self.__fatHeader.nfat_arch):
             header = FAT_ARC.from_buffer_copy(self.__binary[offset:])
             rawBinary = self.__binary[header.offset:header.offset + header.size]
-            if rawBinary[:4] == unhexlify(b"cefaedfe") or rawBinary[:4] == unhexlify(b"cffaedfe"):
+            if rawBinary[:4] in [unhexlify(b"cefaedfe"), unhexlify(b"cffaedfe")]:
                 self.__machoBinaries.append(MACHO(rawBinary))
             else:
-                print("[Error] Binary #" + str(i + 1) + " in Universal binary has an unsupported format")
+                print(
+                    f"[Error] Binary #{str(i + 1)} in Universal binary has an unsupported format"
+                )
             offset += sizeof(header)
 
     def getExecSections(self):

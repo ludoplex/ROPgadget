@@ -237,20 +237,24 @@ class ELF(object):
         ei_class = e_ident[ELFFlags.EI_CLASS]
         ei_data  = e_ident[ELFFlags.EI_DATA]
 
-        if ei_class != ELFFlags.ELFCLASS32 and ei_class != ELFFlags.ELFCLASS64:
+        if ei_class not in [ELFFlags.ELFCLASS32, ELFFlags.ELFCLASS64]:
             print("[Error] ELF.__setHeaderElf() - Bad Arch size")
             return None
 
-        if ei_data != ELFFlags.ELFDATA2LSB and ei_data != ELFFlags.ELFDATA2MSB:
+        if ei_data not in [ELFFlags.ELFDATA2LSB, ELFFlags.ELFDATA2MSB]:
             print("[Error] ELF.__setHeaderElf() - Bad architecture endian")
             return None
 
         if ei_class == ELFFlags.ELFCLASS32:
-            if   ei_data == ELFFlags.ELFDATA2LSB: self.__ElfHeader = Elf32_Ehdr_LSB.from_buffer_copy(self.__binary)
-            elif ei_data == ELFFlags.ELFDATA2MSB: self.__ElfHeader = Elf32_Ehdr_MSB.from_buffer_copy(self.__binary)
+            self.__ElfHeader = (
+                Elf32_Ehdr_LSB.from_buffer_copy(self.__binary)
+                if ei_data == ELFFlags.ELFDATA2LSB
+                else Elf32_Ehdr_MSB.from_buffer_copy(self.__binary)
+            )
         elif ei_class == ELFFlags.ELFCLASS64:
-            if   ei_data == ELFFlags.ELFDATA2LSB: self.__ElfHeader = Elf64_Ehdr_LSB.from_buffer_copy(self.__binary)
-            elif ei_data == ELFFlags.ELFDATA2MSB: self.__ElfHeader = Elf64_Ehdr_MSB.from_buffer_copy(self.__binary)
+            if ei_data == ELFFlags.ELFDATA2LSB: self.__ElfHeader = Elf64_Ehdr_LSB.from_buffer_copy(self.__binary)
+            else:
+                self.__ElfHeader = Elf64_Ehdr_MSB.from_buffer_copy(self.__binary)
 
         self.getArch()  # Check if architecture is supported
 
@@ -304,32 +308,40 @@ class ELF(object):
         return self.__e_entry
 
     def getExecSections(self):
-        ret = []
-        for segment in self.__phdr_l:
-            if segment.p_flags & 0x1:
-                ret +=  [{
-                            "offset"  : segment.p_offset,
-                            "size"    : segment.p_memsz,
-                            "vaddr"   : segment.p_vaddr,
-                            "opcodes" : bytes(self.__binary[segment.p_offset:segment.p_offset + segment.p_memsz]),
-                        }]
-        return ret
+        return [
+            {
+                "offset": segment.p_offset,
+                "size": segment.p_memsz,
+                "vaddr": segment.p_vaddr,
+                "opcodes": bytes(
+                    self.__binary[
+                        segment.p_offset : segment.p_offset + segment.p_memsz
+                    ]
+                ),
+            }
+            for segment in self.__phdr_l
+            if segment.p_flags & 0x1
+        ]
 
     def getDataSections(self):
-        ret = []
-        for section in self.__shdr_l:
-            if not (section.sh_flags & 0x4) and (section.sh_flags & 0x2):
-                ret +=  [{
-                            "name"    : section.str_name,
-                            "offset"  : section.sh_offset,
-                            "size"    : section.sh_size,
-                            "vaddr"   : section.sh_addr,
-                            "opcodes" : bytes(self.__binary[section.sh_offset:section.sh_offset + section.sh_size]),
-                        }]
-        return ret
+        return [
+            {
+                "name": section.str_name,
+                "offset": section.sh_offset,
+                "size": section.sh_size,
+                "vaddr": section.sh_addr,
+                "opcodes": bytes(
+                    self.__binary[
+                        section.sh_offset : section.sh_offset + section.sh_size
+                    ]
+                ),
+            }
+            for section in self.__shdr_l
+            if not (section.sh_flags & 0x4) and (section.sh_flags & 0x2)
+        ]
 
     def getArch(self):
-        if self.__ElfHeader.e_machine == ELFFlags.EM_386 or self.__ElfHeader.e_machine == ELFFlags.EM_X86_64:
+        if self.__ElfHeader.e_machine in [ELFFlags.EM_386, ELFFlags.EM_X86_64]:
             return CS_ARCH_X86
         elif self.__ElfHeader.e_machine == ELFFlags.EM_ARM:
             return CS_ARCH_ARM
@@ -337,7 +349,7 @@ class ELF(object):
             return CS_ARCH_ARM64
         elif self.__ElfHeader.e_machine == ELFFlags.EM_MIPS:
             return CS_ARCH_MIPS
-        elif self.__ElfHeader.e_machine == ELFFlags.EM_PowerPC or self.__ElfHeader.e_machine == ELFFlags.EM_PPC64:
+        elif self.__ElfHeader.e_machine in [ELFFlags.EM_PowerPC, ELFFlags.EM_PPC64]:
             return CS_ARCH_PPC
         elif self.__ElfHeader.e_machine == ELFFlags.EM_SPARCv8p:
             return CS_ARCH_SPARC
